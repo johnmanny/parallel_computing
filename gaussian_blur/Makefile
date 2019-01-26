@@ -11,6 +11,9 @@ ispc:
 
 gs:
 	g++ -I/opt/X11/include -g -o gs grayscale.cpp -L/opt/X11/lib -lX11 -ljpeg -lpthread 
-
+runs:
+	./blur_serial
+runp:
+	./blur_ispc
 clean:
-	rm blur_serial gs output.jpg
+	rm blur_serial gs output.jpg blur_ispc vecblur_ispc.h vecblur_ispc.o

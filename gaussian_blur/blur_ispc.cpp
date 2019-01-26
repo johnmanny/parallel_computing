@@ -106,9 +106,9 @@ int main () {
     */
 
     // ispc implementation
-    ispc::vecblur(Rmod, R, width, height);
-    ispc::vecblur(Gmod, G, width, height);
-    ispc::vecblur(Bmod, B, width, height);
+    ispc::vecblur(Rmod, R, realWidth, realHeight);
+    ispc::vecblur(Gmod, G, realWidth, realHeight);
+    ispc::vecblur(Bmod, B, realWidth, realHeight);
 
     // get end time, calculate time passed and output
     gettimeofday(&end, NULL);
