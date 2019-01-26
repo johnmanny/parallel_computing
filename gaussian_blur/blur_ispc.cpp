@@ -13,7 +13,7 @@
 
 #define cimg_use_jpeg
 #include "CImg.h"
-#include "vecblur.ispc"		// include ispc definitions
+#include "vecblur_ispc.h"		// include ispc definitions
 
 using namespace cimg_library;
 
@@ -106,9 +106,9 @@ int main () {
     */
 
     // ispc implementation
-    ispc::vecblur::(Rmod, R, width, height);
-    ispc::vecblur::(Gmod, G, width, height);
-    ispc::vecblur::(Bmod, B, width, height);
+    ispc::vecblur(Rmod, R, width, height);
+    ispc::vecblur(Gmod, G, width, height);
+    ispc::vecblur(Bmod, B, width, height);
 
     // get end time, calculate time passed and output
     gettimeofday(&end, NULL);
