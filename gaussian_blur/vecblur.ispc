@@ -6,7 +6,6 @@ export inline void vecblur(uniform float * uniform A[], uniform float * uniform 
     foreach (c = 0 ... width, r = 0 ... height) {
       int tx = c + 1;
       int ty = r + 1;
-      A[c][r] = (B[tx][ty] + B[tx-1][ty-1] + B[tx][ty-1] + B[tx+1][ty-1] + B[tx-1][ty] + B[tx+1][ty] + B[tx-1][ty+1] + B[tx][ty+1] + B[tx+1][ty+1]) / 9;
-      //*(A[c] + r) = (*(B[tx] + ty) + *(B[tx-1]+(ty-1)) + *(B[tx]+(ty-1)) + *(B[tx+1]+(ty-1)) + *(B[tx-1]+ty) + *(B[tx+1]+ty) + *(B[tx-1]+(ty+1)) + *(B[tx]+(ty+1)) + *(B[tx+1]+(ty+1))) / 9;
+      A[c][r] = (B[tx-1][ty-1] + B[tx][ty-1] + B[tx+1][ty-1] + B[tx-1][ty] + B[tx+1][ty] + B[tx-1][ty+1] + B[tx][ty+1] + B[tx+1][ty+1]) / 8.0;
     }
 }

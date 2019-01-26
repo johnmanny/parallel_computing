@@ -88,23 +88,6 @@ int main () {
     struct timeval end, start;
     gettimeofday(&start, NULL); 
 
-    /* serial implementation
-    //// compute averaged values
-    //		top left = tX-1,tY-1 --- top = tX, tY-1 --- top right = tX+1, tY-1
-    //		left = tx-1, ty --- right = tX+1, tY
-    // 		bot left = tX-1, tY+1 --- bot = tX, tY+1 --- bot right = tX+1, tY+1
-    int tX, tY;
-    for (c = 0; c < realWidth; c++) {
-        tX = c + 1;		// transformed x
-        for (r = 0; r < realHeight; r++) {
-            tY = r + 1;		// transformed y
-            Rmod[c][r] = (R[tX][tY] + R[tX-1][tY-1] + R[tX][tY-1] + R[tX+1][tY-1] + R[tX-1][tY] + R[tX+1][tY] + R[tX-1][tY+1] + R[tX][tY+1] + R[tX+1][tY+1]) / 9;
-            Gmod[c][r] = (G[tX][tY] + G[tX-1][tY-1] + G[tX][tY-1] + G[tX+1][tY-1] + G[tX-1][tY] + G[tX+1][tY] + G[tX-1][tY+1] + G[tX][tY+1] + G[tX+1][tY+1]) / 9;
-            Bmod[c][r] = (B[tX][tY] + B[tX-1][tY-1] + B[tX][tY-1] + B[tX+1][tY-1] + B[tX-1][tY] + B[tX+1][tY] + B[tX-1][tY+1] + B[tX][tY+1] + B[tX+1][tY+1]) / 9;
-        }
-    }
-    */
-
     // ispc implementation
     ispc::vecblur(Rmod, R, realWidth, realHeight);
     ispc::vecblur(Gmod, G, realWidth, realHeight);

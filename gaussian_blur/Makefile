@@ -5,8 +5,8 @@ serial:
 
 par: ispc
 	g++ -m64 -I/opt/X11/include -g -o blur_ispc blur_ispc.cpp vecblur_ispc.o -L/opt/X11/lib -lX11 -ljpeg -lpthread -std=c++11
-
 ispc:
+	@echo module load ispc
 	ispc -Iobjs -O2 --arch=x86-64 --target=sse2 vecblur.ispc -o vecblur_ispc.o -h vecblur_ispc.h
 
 gs:

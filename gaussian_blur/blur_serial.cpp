@@ -93,9 +93,9 @@ int main () {
         tX = c + 1;		// transformed x
         for (r = 0; r < realHeight; r++) {
             tY = r + 1;		// transformed y
-            Rmod[c][r] = (R[tX][tY] + R[tX-1][tY-1] + R[tX][tY-1] + R[tX+1][tY-1] + R[tX-1][tY] + R[tX+1][tY] + R[tX-1][tY+1] + R[tX][tY+1] + R[tX+1][tY+1]) / 9;
-            Gmod[c][r] = (G[tX][tY] + G[tX-1][tY-1] + G[tX][tY-1] + G[tX+1][tY-1] + G[tX-1][tY] + G[tX+1][tY] + G[tX-1][tY+1] + G[tX][tY+1] + G[tX+1][tY+1]) / 9;
-            Bmod[c][r] = (B[tX][tY] + B[tX-1][tY-1] + B[tX][tY-1] + B[tX+1][tY-1] + B[tX-1][tY] + B[tX+1][tY] + B[tX-1][tY+1] + B[tX][tY+1] + B[tX+1][tY+1]) / 9;
+            Rmod[c][r] = (R[tX-1][tY-1] + R[tX][tY-1] + R[tX+1][tY-1] + R[tX-1][tY] + R[tX+1][tY] + R[tX-1][tY+1] + R[tX][tY+1] + R[tX+1][tY+1]) / 8.0;
+            Gmod[c][r] = (G[tX-1][tY-1] + G[tX][tY-1] + G[tX+1][tY-1] + G[tX-1][tY] + G[tX+1][tY] + G[tX-1][tY+1] + G[tX][tY+1] + G[tX+1][tY+1]) / 8.0;
+            Bmod[c][r] = (B[tX-1][tY-1] + B[tX][tY-1] + B[tX+1][tY-1] + B[tX-1][tY] + B[tX+1][tY] + B[tX-1][tY+1] + B[tX][tY+1] + B[tX+1][tY+1]) / 8.0;
         }
     }
 
