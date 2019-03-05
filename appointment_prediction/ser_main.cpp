@@ -51,7 +51,7 @@ typedef struct Neuron {
 */
 typedef struct Example {
 
-    double inputsByOrder[9];
+    double inputsByOrder[INPUTNEURONS];
     double output;
 } example;
 
@@ -61,6 +61,8 @@ typedef struct NeuralNetwork {
 
     int layerCount;
     /* inputWeights[0] = weight from input node 1 to hidden node 1
+	inputWeights[1] = weight from input node 1 to hidden node 2
+	inputWeights[2] = weight from input node 1 to hidden node 3
 	inputWeights[3] = weight from input node 2 to hidden node 1
 	inputWeights[17] = weight from input nod 9 to hidden node 3
     */
@@ -242,9 +244,10 @@ void backPropLearning(example * examplesArr, neuralNet * nn) {
                 nn->inputNeurons[v].activatedVal = examplesArr[j].inputsByOrder[v];
             }
             for (int x = 0; x < HIDDENNEURONS; x++) {		// produce vals for hidden neurons
-                nn->hiddenNeurons[x].val = 0.5;		// init as .4 for bias
+                nn->hiddenNeurons[x].val = 0.5;			// init as .4 for bias
                 for (int z = 0; z < INPUTNEURONS; z++) {	// sum vals of each input and weight
-                    nn->hiddenNeurons[x].val += (nn->inputNeurons[z].activatedVal * nn->inputWeights[x + (3 * z)]);
+                    nn->hiddenNeurons[x].val += (nn->inputNeurons[z].activatedVal
+						 * nn->inputWeights[x + (HIDDENNEURONS * z)]);
                 }
                 nn->hiddenNeurons[x].activate();	// executes activation func tied to neurons
             }
@@ -269,18 +272,20 @@ void backPropLearning(example * examplesArr, neuralNet * nn) {
                                  (nn->hiddenWeights[x] * outputError);
             }
 
-            int neuWeightStartIndex;
+            int neuWeightStartIndex;			// for when compilation excludes automatic optimizations
+            int changeSpd = 0.084;			// used to influence speed of weight changes? (RECHECK WHY)
             /* ---update each weight using errors--- */
             // update input weights
             for (int x = 0; x < INPUTNEURONS; x++) {
-                neuWeightStartIndex = x * 3;
+                neuWeightStartIndex = x * HIDDENNEURONS;
                 for (int y = 0; y < HIDDENNEURONS; y++) {
-                    nn->inputWeights[neuWeightStartIndex + y] += (0.084 * nn->inputNeurons[x].activatedVal * hiddenError[y]);
+                    nn->inputWeights[neuWeightStartIndex + y] += (changeSpd * nn->inputNeurons[x].activatedVal
+								 * hiddenError[y]);
                 }
             }
             // update hidden neuron weights
             for (int x = 0; x < HIDDENNEURONS; x++) {
-                nn->hiddenWeights[x] += (0.084 * nn->hiddenNeurons[x].activatedVal * outputError);
+                nn->hiddenWeights[x] += (changeSpd * nn->hiddenNeurons[x].activatedVal * outputError);
             }
 
         }
