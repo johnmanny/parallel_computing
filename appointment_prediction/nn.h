@@ -10,7 +10,11 @@
 #define INPUTNEURONS 9
 #define HIDDENNEURONS 5
 #define OUTPUTNEURONS 1
-#define EXAMPLECOUNT 110527
+//#define TOTALEXAMPLES 110522
+#define EXAMPLECOUNT 110522
+
+#define TRAININGSET 100007
+#define TESTSET 10500
 
 //----------------------------------------------------------------//
 /* structs for NN */
@@ -67,3 +71,5 @@ typedef struct NeuralNetwork {
     neuron outputNeuron;
 
 } neuralNet;
+
+#endif
