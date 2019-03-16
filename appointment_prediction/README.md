@@ -9,6 +9,24 @@ It uses backpropogation to calculate the error and propogate required changes to
 weights in previous network layers in order to account for the difference in example and
 network output. 
 
+The network predicts whether or not a patient who scheduled an appointment is likely
+to attend their scheduled appointment. The data is taken from the open source data 
+repository kaggle:
+https://www.kaggle.com/joniarroba/noshowappointments
+
+9 attributes are calculated from the data:
+```
+1. sex			// male, female
+2. days from sch-appt	// 0-5, 5-14, 14+
+3. age			// unknown, under 25, 25-50, 50+
+4. had scholarship	// yes, no
+5. has hypertension	// yes, no
+6. has diabetes		// yes, no
+7. is alcholic		// yes, no
+8. is handicapped	// yes, no
+9. received reminder	// yes, no
+```
+
 ## Use
 The number of hidden layers and neurons in each respective layer are passed as arguments:
 There are 2 layers which aren't modified. 
