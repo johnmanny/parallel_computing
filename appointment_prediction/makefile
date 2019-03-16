@@ -12,7 +12,7 @@ ser_main.o: ser_main.cpp
 # Arguments are number of hidden neurons on each layer
 #   I.E.: 5 neurons at first hidden layer, 6 neurons at second hidden layer,etc
 run:
-	./ser_main 5 6 3
+	./ser_main 5 6
 log:
 	./ser_main > log
 

@@ -24,6 +24,7 @@
 ///////////////////////////////////////
 /* struct for Neuron
     - Uses sigmoid activation function
+    TODO: Remove activate() and  derive() functions and make them global or static
 */
 typedef struct Neuron {
     void activate() { this->activatedVal = (1.0 / (1.0 + exp((-this->val)) ) ); };
@@ -32,9 +33,13 @@ typedef struct Neuron {
     double activatedVal;	// activated by sigmoid function to range it between 0-1
     double derivedVal;		// used for error calculation
 
+    /* Weights:
+        - Each neuron holds the strength of connections to neurons in the next layer in its weight array
+        - The index in the array is the index of the neuron in the next layer. I.E:
+            Neuron 2->Neuron 4 in next layer is at: weights[3]
+    */
     double * weights;		// holds weights for connecting neurons in next layer
     double curWError;		// current error of weight value
-    //nConn * conn;		// list of which neurons this neuron connects to
 
 } neuron;
 
@@ -58,17 +63,6 @@ typedef struct Example {
     double output;
 } example;
 
-/*
-///////////////////////////////////////
-// struct for weight connection between two neurons
-typedef struct NeuronConnection {
-
-    neuron * from;
-    neuron * to;
-    double weight;    
-} nConn;
-*/
-
 ///////////////////////////////////////
 // struct for the layers in neural network
 typedef struct Layer {
@@ -88,23 +82,8 @@ typedef struct NeuralNetwork {
 	inputWeights[3] = weight from input node 2 to hidden node 1
 	inputWeights[17] = weight from input nod 9 to hidden node 3
     */
-    //// hidden neuron x at hidden layer Y starts at index:
-    // (HIDDENNEURONS*HIDDENNEURONS) + HIDDENNEURONS*Y + x
-    //		I.E: with HIDDENNEURONS = 5, LAYERS = 3, 1 output neuron (last set of weights point to 1 output)
-    //          Hidden neuron 2->output weight at hidden layer 3 is:
-    //		(5*5)*5*Y
-    //original: double hiddenWeights[((HIDDENNEURONS * HIDDENNEURONS) * (HIDDENLAYERS-1)) + HIDDENNEURONS];
-    //original: double inputWeights[INPUTNEURONS * HIDDENNEURONS];
-    //original: double hiddenWeights[HIDDENNEURONS * OUTPUTNEURONS];
-    //double allWeights[(INPUTNEURONS * HIDDENNEURONS) + 
-    //		(HIDDENNEURONS * (HIDDENLAYERS - 1) + HIDDENNEURONS];
-    //original: neuron inputNeurons[INPUTNEURONS];
-    //original: neuron hiddenNeurons[HIDDENNEURONS];
-    //secondary: neuron hiddenNeurons[HIDDENNEURONS * HIDDENLAYERS];
-    
-    //neuron inputNeurons[INPUTNEURONS];		// number of input neurons won't change
     layer * layers;
-    //neuron outputNeuron;
+    double * biasByLayer;		// represents separate bias for neurons in each feedforward iteration
 
 } neuralNet;
 

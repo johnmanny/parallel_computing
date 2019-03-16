@@ -279,6 +279,7 @@ void neuronsPrint(neuralNet * nn) {
             cout << "\t\tval: " << nn->layers[i].neurons[j].val << endl;
             cout << "\t\tactivatedVal: " << nn->layers[i].neurons[j].activatedVal << endl;
             cout << "\t\tcurrent error of the weight: " << nn->layers[i].neurons[j].curWError << endl;
+            cout << "\t\tderivedVal: " << nn->layers[i].neurons[j].derivedVal << endl;
             if (nn->layers[i].neurons[j].weights != NULL) {
                 cout << "\t\tweight connections: " << endl;
                 for (int k = 0; k < nn->layers[i+1].neuronCount; k++) {
@@ -308,66 +309,14 @@ void deAlloc(neuralNet * nn) {
              delete [] nn->layers[i].neurons;
     }
 
-    // remove layers
+    if (nn->biasByLayer != NULL)
+        delete [] nn->biasByLayer;
+
     if (nn->layers != NULL)
         delete [] nn->layers;
 }
 
-
-////////////////////////////////////////////////////////////////////
-/* prints NN info
- - NEEDS UPDATING
-void printNN(neuralNet * nn) {
-
-    cout << "---INPUT BREAKDOWN:" << endl;
-    char inputName[256];
-    for (int i = 0; i < INPUTNEURONS; i++) {
-        switch (i) {
-            case 0:
-                strcpy(inputName, "gender");
-                break;
-            case 1:
-                strcpy(inputName, "time between appointments");
-                break;
-            case 2:
-                strcpy(inputName, "age bracket");
-                break;
-            case 3:
-                strcpy(inputName, "has scholarship");
-                break;
-            case 4:
-                strcpy(inputName, "has hypertension");
-                break;
-            case 5:
-                strcpy(inputName, "has diabetes");
-                break;
-            case 6:
-                strcpy(inputName, "has alcoholism");
-                break;
-            case 7:
-                strcpy(inputName, "has handicap");
-                break;
-            case 8:
-                strcpy(inputName, "recieved reminder");
-                break;
-        }
-        for (int y = 0; y < HIDDENNEURONS; y++) {
-            cout << inputName << "\t->hidden" << y << " weight: " << nn->inputWeights[(i * HIDDENNEURONS) + y] << endl;
-        }
-        cout << inputName << " val: " << nn->inputNeurons[i].val << "\n\tending activatedVal: " << nn->inputNeurons[i].activatedVal << endl;
-    }
-    for (int i = 0; i < HIDDENNEURONS; i++) {
-        cout << "hidden" << i << "->output weight: " << nn->hiddenWeights[i] << endl;
-        cout << "\tval: " << nn->hiddenNeurons[i].val << " activated Val: " << nn->hiddenNeurons[i].activatedVal
-             << " derived val: " << nn->hiddenNeurons[i].derivedVal << endl;
-    }
-    cout << "output's val: " << nn->outputNeuron.val << " activated Val: " << nn->outputNeuron.activatedVal
-         << " derived val: " << nn->outputNeuron.derivedVal << endl;
-    cout << "yes: 0.95 no: 0.05" << endl;
-}
-*/
-
-////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
 /* Performs back prop algorithm for nn learning 
 	Pseudocode for similar algorithm found on page 734 of Russell's
 	Artificial Intelligence - A modern approach, Figure 18.24.
@@ -380,89 +329,88 @@ void printNN(neuralNet * nn) {
 void backPropLearning(example * examplesArr, neuralNet * nn) {
 
     int i, j, k, v;
-    int inputWCount = INPUTNEURONS * HIDDENNEURONS;
     int exampleIterations = 0;
     int outputLayer = nn->layerCount - 1;
     double learnRate;
-    // used for generating random weights
-    random_device rd;
-    mt19937 gen(rd());
-    uniform_real_distribution<> dis(0.0, 1.0);
+
+    // seed pseudo-random generator for same sequence every time
+    srand(999);
+    // create array of biases for each layer
+    nn->biasByLayer = new double[outputLayer];                                          // init bias used in each layer
+    for (j = 0; j < outputLayer; j++) {
+        nn->biasByLayer[j] = (rand() % 1000) / 1000.0;
+    }
+
 
     while (1) {
 
         nn->layers[outputLayer].neurons[0].activatedVal = 500.0;			// reset activated val of output neuron for convergence tests
+
         // assign random initial weights for each neuron connection other than for last later
-        for (i = 0; i < outputLayer; i++) {				// for each layer except output layer
-            for (k = 0; k < nn->layers[i].neuronCount; k++) {		// for each neuron in the layer
-                for (j = 0; j < nn->layers[i+1].neuronCount; j++) {	// for each connection this neuron has
-                    nn->layers[i].neurons[k].weights[j] = dis(gen);
+        for (i = 0; i < outputLayer; i++) {						// for each layer except output layer
+            for (k = 0; k < nn->layers[i].neuronCount; k++) {				// for each neuron in the layer
+                for (j = 0; j < nn->layers[i+1].neuronCount; j++) {			// for each connection this neuron has, randomize weight
+                    nn->layers[i].neurons[k].weights[j] = (rand() % 1000) / 1000.0 ;
                 }
             }
         }
-        /*
-        for (int i = 0; i < inputWCount; i++) {
-            nn->inputWeights[i] = dis(gen);
-        }
-        for (int i = 0; i < HIDDENNEURONS; i++) {
-            nn->hiddenWeights[i] = dis(gen);
-        }
-        */
 
         double outputError = 1.0, oldError, oldActivated; 	// variables for convergence tests
-        oldActivated = nn->layers[outputLayer].neurons[0].activatedVal;
         // loop through examples 
 	for (j = 0; j < TRAININGSET; j++) {
-            ///////////// ---propogate inputs forward to output---
-            // assign input layer values
+            /* -------------------------
+             * Propogate inputs forward to the output neuron
+             * ------------------------- */
+            //// record previous activated value for output neuron (used in convergence test)
+            oldActivated = nn->layers[outputLayer].neurons[0].activatedVal;
+
+            //// assigns input values used in the example
             for (v = 0; v < INPUTNEURONS; v++) {
                 nn->layers[0].neurons[v].val = examplesArr[j].inputsByOrder[v];
                 nn->layers[0].neurons[v].activatedVal = examplesArr[j].inputsByOrder[v];
             }
-            // find values for hidden and output neurons
-            for (i = 1; i < nn->layerCount; i++) {				// for all layers other than the input
-                for (v = 0; v < nn->layers[i].neuronCount; v++) {		// for each neuron in this layer
-                    nn->layers[i].neurons[v].val = 0.11 * (double) i;		// assigning initial bias to neuron
-                    for (k = 0; k < nn->layers[i-1].neuronCount; k++) {		// for each weight of this neuron
+
+            //// find values for hidden and output neurons
+            // for all layers other than the input
+            for (i = 1; i < nn->layerCount; i++) {
+
+		// for each neuron in this layer
+                for (v = 0; v < nn->layers[i].neuronCount; v++) {
+
+                    // assign layer bias as part of sum
+                    nn->layers[i].neurons[v].val = nn->biasByLayer[i-1];
+
+                    // for each connection this neuron has
+                    for (k = 0; k < nn->layers[i-1].neuronCount; k++) {
                         nn->layers[i].neurons[v].val += (nn->layers[i-1].neurons[k].activatedVal
     						 * nn->layers[i-1].neurons[k].weights[v]);
                     }
-                    nn->layers[i].neurons[v].activate();		// executes activation func tied to neurons
+                    nn->layers[i].neurons[v].activate();
                 }
             }
 
-            /* ----------original
-            nn->outputNeuron.val = 0.6;				// for bias
-            for (int x = 0; x < HIDDENNEURONS; x++) {		// propagate input to output neuron
-                nn->outputNeuron.val += (nn->hiddenNeurons[x].activatedVal * nn->hiddenWeights[x]);
-            }
-               
-            oldActivated = nn->outputNeuron.activatedVal;
-            nn->outputNeuron.activate();
-            */
-
-            /////////---propogate error backwards---
-            // find error of output
-            /* -------------original
-            oldError = outputError;				// used for convergence test to ensure covergence (minimality)
-            nn->outputNeuron.derive();
-            */
-	    // ---------------------NEED TO FIX
-            //original: outputError = (nn->outputNeuron.derivedVal * (examplesArr[j].output - nn->outputNeuron.activatedVal));
-            //secondary: outputError = 0.5 * ((examplesArr[j].output - nn->outputNeuron.activatedVal) * (examplesArr[j].output - nn->outputNeuron.activatedVal));
-            oldError = outputError;				// used for convergence test to ensure covergence (minimality)
+            /* -------------------------
+             * Propogating error backwards
+             *		- Error of all nodes must be found first
+             * ------------------------- */
+            //// Find error of output node
+            oldError = nn->layers[outputLayer].neurons[0].curWError;		// used in convergence test (minimality test)
             nn->layers[outputLayer].neurons[0].derive();
-            outputError = (nn->layers[outputLayer].neurons[0].derivedVal * (examplesArr[j].output - nn->layers[outputLayer].neurons[0].activatedVal));
-            nn->layers[outputLayer].neurons[0].curWError = outputError;
-	    // ---------------------^TOFIX?
-            //cout << "\n\tneural network activated val * : " << nn->outputNeuron.activatedVal << endl;
+            nn->layers[outputLayer].neurons[0].curWError = (nn->layers[outputLayer].neurons[0].derivedVal
+								 * (examplesArr[j].output - nn->layers[outputLayer].neurons[0].activatedVal));
+            outputError = nn->layers[outputLayer].neurons[0].curWError;		// outputError used in convergence test readability
 
-            //// ---------Calculate responsibility of error for earlier nodes
-            for (i = outputLayer - 1; i >= 0; i--) {				// for all layers other than the input
+            //// Calculate responsibility of error for neurons in earlier layers
+            // for each layer other than the output (already calculated)
+            for (i = outputLayer - 1; i >= 0; i--) {
+
+                // for each neuron in the layer
                 for (v = 0; v < nn->layers[i].neuronCount; v++) {		// for each neuron in this layer
                     neuron * curNeuron = &nn->layers[i].neurons[v];
                     curNeuron->curWError = 0.0;					// reset from last example
-                    for (k = 0; k < nn->layers[i+1].neuronCount; k++) {		// for each neurons error of next layer (summing)
+
+                    // sums total responsibility of neuron's weight error considering connection's error value
+                    for (k = 0; k < nn->layers[i+1].neuronCount; k++) {
                         curNeuron->curWError +=  (curNeuron->weights[k] * nn->layers[i+1].neurons[k].curWError);
                     }
                     curNeuron->derive();
@@ -470,66 +418,36 @@ void backPropLearning(example * examplesArr, neuralNet * nn) {
                 }
             }
 
-            //// find error of hidden neuron weights (the delta rule, based on the chain rule)
-            //		good explanation: https://mattmazur.com/2015/03/17/a-step-by-step-backpropagation-example/
-            /*
-            double hiddenError[HIDDENNEURONS];
-            for (int x = 0; x < HIDDENNEURONS; x++) {
-                nn->hiddenNeurons[x].derive();
-                
-                hiddenError[x] = nn->hiddenNeurons[x].derivedVal * (nn->hiddenWeights[x] * outputError);
-                //other sol: hiddenError[x] = (nn->outputNeuron.activatedVal - examplesArr[j].output)
-		//		* (nn->outputNeuron.activatedVal * (1.0 - nn->outputNeuron.activatedVal)
-		//		* nn->hiddenNeurons[x].activatedVal);
-                //other better sol: hiddenError[x] = (nn->outputNeuron.activatedVal - examplesArr[j].output)
-		//		* nn->outputNeuron.derivedVal * nn->hiddenNeurons[x].activatedVal;
-            }
-            */
+            // learning rate - decays as failed example iterations increase
+            learnRate = 10000.0/(1000.0 + exampleIterations);
 
+            //// Update all weights using calculated errors
+            // for each layer except last
+            for (i = 0; i < outputLayer; i++) {
 
-            int neuWeightStartIndex;					// for when compilation excludes automatic optimizations
-            learnRate = 5000.0/(1000.0 + exampleIterations);		// learning rate - decays as failed example iterations increase (increased precision)
+                // for each neuron in each layer
+                for (v = 0; v < nn->layers[i].neuronCount; v++) {
 
-            ////////////////---update each weight using errors---
-            // update all weights
-            for (i = 0; i < (outputLayer - 1); i++) {			// for each layer except last
-                for (v = 0; v < nn->layers[i].neuronCount; v++) {	// for each neuron in each layer
-                        neuron * curNeuron = &nn->layers[i].neurons[v];
-                    for (k = 0; k < nn->layers[i+1].neuronCount; k++) { // each weight of current neuron
+                    // for each connection the current neuron has
+                    neuron * curNeuron = &nn->layers[i].neurons[v];
+                    for (k = 0; k < nn->layers[i+1].neuronCount; k++) {
                         curNeuron->weights[k] += (learnRate * curNeuron->activatedVal * nn->layers[i+1].neurons[k].curWError);
                     }
                 }
             }
-            /*
-            // update input weights
-            for (int x = 0; x < INPUTNEURONS; x++) {
-                neuWeightStartIndex = x * HIDDENNEURONS;
-                for (int y = 0; y < HIDDENNEURONS; y++) {
-                    nn->inputWeights[neuWeightStartIndex + y] += (learnRate * nn->inputNeurons[x].activatedVal * hiddenError[y]);
-                    //double WeightIndexError = (nn->outputNeuron.activatedVal - examplesArr[j].output) * nn->hiddenNeurons[y].derivedVal
-		    //				* nn->inputNeurons[x].activatedVal;
-                    //nn->inputWeights[neuWeightStartIndex + y] -= (learnRate * WeightIndexError);
-                }
-            }
-            // update hidden neuron weights
-            for (int x = 0; x < HIDDENNEURONS; x++) {
-                nn->hiddenWeights[x] += (learnRate * nn->hiddenNeurons[x].activatedVal * outputError);
-                //nn->hiddenWeights[x] += (learnRate * hiddenError[x]);
-            }
-        */
         }
-        //printNN(nn);
+
         /* Test for convergence:
 	 * 	This section tests for satisfiable training of the network on the training set of examples. 
 	 * 	- First checks whether the error in the output node on the final example is within an acceptable
 	 * 		and defined range
-	 * 	- Second, it checks whether the old activated value of the output neuron and the error of the last example
-	 * 		has been trending downward, implying a local minimum of maximum 
-	 * FIGURE OUT CORRECT OUTPUTERROR DISPLAY */
-        if ( fabs(outputError) < 0.002) {
+	 * 	- Second, it checks whether the old activated and error values have been getting smaller, implying
+         *              convergence towards a minimum.
+	 */
+        if ( fabs(outputError) < 0.0008) {			// outputError threshold is arbitrary
 
             cout.precision(15);
-            cout << "\t---PASSED OUTPUTERROR TEST THROUGH ITERATION OF EXAMPLES AND NEW WEIGHTS - VALUE: " << fixed << outputError << endl;
+            cout << "\t---PASSED OUTPUTERROR TEST - outputError:\t" << fixed << outputError << endl;
 
             // variables to test for final example evaluation (convergence)
             double actDiff = fabs(oldActivated - nn->layers[outputLayer].neurons[0].activatedVal);
@@ -539,73 +457,85 @@ void backPropLearning(example * examplesArr, neuralNet * nn) {
                 //exampleIterations = 0;
                 continue;
             }
-            cout << "\tPASSED CONVERGENCE TEST\n\toutput difference upon final example: " << actDiff
-                 << "\n\terror difference upon final example: " << errorDiff << endl;
-            cout << "\tloops through example set: " << exampleIterations << endl;
-            cout << "\tlearnRate: " << learnRate << endl;
-            cout << "\toutput target " << examplesArr[TRAININGSET-1].output << endl;
-            cout << "\toutput result: " << nn->layers[outputLayer].neurons[0].activatedVal << endl;
-            //printNN(nn);
+            cout << "\t---PASSED CONVERGENCE TEST\n\toutput difference upon final example:\t"  << actDiff
+                 << "\n\terror difference upon final example:\t" << errorDiff << endl;
+            cout << "\tloops through example set:\t" << exampleIterations << endl;
+            cout << "\tlearnRate:\t\t\t" << learnRate << endl;
+            cout << "\toutput target:\t\t\t" << examplesArr[TRAININGSET-1].output << endl;
+            cout << "\toutput result:\t\t\t" << nn->layers[outputLayer].neurons[0].activatedVal << endl;
             return;
         }
         exampleIterations++;
 
         if ((exampleIterations % 100) == 0) {
-            neuronsPrint(nn);
-            cout << "\n---Convergence not achieved\n\tIterations through examples: " << exampleIterations << endl;
-            cout << "\tlearnRate: " << learnRate << "\n\toutputError: " << outputError << endl;
-            cout << "\toutput target " << examplesArr[TRAININGSET-1].output << endl;
-            cout << "\toutput result: " << nn->layers[outputLayer].neurons[0].activatedVal << endl;
-            //printNN(nn);
+            //neuronsPrint(nn);
+            cout << "\n---Convergence not achieved\n\tIterations through examples:\t\t" << exampleIterations << endl;
+            cout << "\tlearnRate:\t\t\t\t" << learnRate << "\n\tlast example outputError:\t\t" << outputError << endl;
+            cout << "\tlast example output target:\t\t" << examplesArr[TRAININGSET-1].output << endl;
+            cout << "\tlast example output result:\t\t" << nn->layers[outputLayer].neurons[0].activatedVal << endl;
 	}
 
     }
 }
 
-/*
 //////////////////////////////////////////////////////
 void predictExamples(neuralNet * nn, example * examplesArr) {
 
-    int correct = 0;		// number of correct predictions
+    const double correctThreshold = 0.5;        // a simple threshold for yes/no predictions
+    int correct = 0;                            // number of correct predictions
     int testIndex = TRAININGSET + 1;
 
+    // define output neuron pointer for readability (lol)
+    neuron * outputNeuron = &nn->layers[nn->layerCount-1].neurons[0];
+
     for (int j = 0; j < TESTSET; j++) {
-    // fix indents
-    // ---propogate inputs forward to output---
-    for (int v = 0; v < INPUTNEURONS; v++) {	// assign initial vals
-        nn->inputNeurons[v].val = examplesArr[testIndex].inputsByOrder[v];
-        nn->inputNeurons[v].activatedVal = examplesArr[testIndex].inputsByOrder[v];
-    }
-    for (int x = 0; x < HIDDENNEURONS; x++) {		// produce vals for hidden neurons
-        nn->hiddenNeurons[x].val = 0.35;			// bias
-        for (int z = 0; z < INPUTNEURONS; z++) {	// sum vals of each input and weight
-            nn->hiddenNeurons[x].val += (nn->inputNeurons[z].activatedVal
-		 * nn->inputWeights[x + (HIDDENNEURONS * z)]);
+        /* -------------------------
+         * Propogate inputs forward to the output neuron
+         * ------------------------- */
+
+        //// assigns input values used in the example
+        for (int v = 0; v < INPUTNEURONS; v++) {
+            nn->layers[0].neurons[v].val = examplesArr[j].inputsByOrder[v];
+            nn->layers[0].neurons[v].activatedVal = examplesArr[j].inputsByOrder[v];
         }
-        nn->hiddenNeurons[x].activate();	// executes activation func tied to neurons
-    }
 
-    nn->outputNeuron.val = 0.6;		// for bias
-    for (int x = 0; x < HIDDENNEURONS; x++) {	// propagate input to output neuron
-        nn->outputNeuron.val += (nn->hiddenNeurons[x].activatedVal * nn->hiddenWeights[x]);
-    }
-    nn->outputNeuron.activate();
-    if ((examplesArr[testIndex].output != 0.05) && (nn->outputNeuron.activatedVal >= 0.5)) {	// ouput yes, nn is yes
-        correct++;
-    } else {
+        //// find values for hidden and output neurons
+        // for all layers other than the input
+        for (int i = 1; i < nn->layerCount; i++) {
 
-        if (nn->outputNeuron.activatedVal < 0.5) { 						// output no, nn no
+            // for each neuron in this layer
+            for (int v = 0; v < nn->layers[i].neuronCount; v++) {
+
+                // assign layer bias as part of sum
+                nn->layers[i].neurons[v].val = nn->biasByLayer[i-1];
+
+                // for each connection this neuron has
+                for (int k = 0; k < nn->layers[i-1].neuronCount; k++) {
+                    nn->layers[i].neurons[v].val += (nn->layers[i-1].neurons[k].activatedVal
+                                             * nn->layers[i-1].neurons[k].weights[v]);
+                }
+                nn->layers[i].neurons[v].activate();
+            }
+        }
+
+        // Record if prediction was correct (simple halfway threshold used)
+        if ((examplesArr[testIndex].output != 0.05) && (outputNeuron->activatedVal >= correctThreshold)) {
+            // In this case, example is yes and network is yes (above simple threshold)
             correct++;
+        } else {
+            if (outputNeuron->activatedVal < correctThreshold) {
+                // In this case, example is no and network is no
+                correct++;
+            }
+
         }
 
+        testIndex++;
     }
-    testIndex++;
-    // fix indents
-    }
-    cout << "Number of Examples predicted correctly: " <<  correct << "\tOut of " << TESTSET << " examples" << endl;
-    cout << "Percent of correct predictions: " << setprecision(2) << ((double)correct) / ((double)TESTSET) * 100.0 << endl;
+
+    cout << "\tNumber of Examples predicted correctly: " <<  correct << "\tOut of " << TESTSET << " examples" << endl;
+    cout << "\tPercent of correct predictions: " << setprecision(2) << correct / ((double)TESTSET) * 100.0 << endl;
 }
-*/
 
 ////////////////////////////////////////////////////////////////////
 /* Declares and initializes examples and neural net values. Then trains
@@ -613,45 +543,41 @@ void predictExamples(neuralNet * nn, example * examplesArr) {
 */
 int main(int argc, char * argv[]) {
 
-    neuralNet backPropNN;				// declare neural net
+    // initialize neuralnetwork with passed arguments (exits if not)
+    neuralNet backPropNN;
+    initNN(&backPropNN, argc - 1, argv);
 
-    initNN(&backPropNN, argc - 1, argv);		// init neural network structure
+    // declare example array on heap
+    example * exampleSet = new example[EXAMPLECOUNT];
 
     struct timeval end, start;
-
-    example * exampleSet = new example[EXAMPLECOUNT];	// declare example array on heap
-
     gettimeofday(&start, NULL);				// record time at start
-    initExamples(exampleSet);				// initialize all examples
+    initExamples(exampleSet);				// initialize all examples using EXAMPLECOUNT (nn.h)
     gettimeofday(&end, NULL);				// record time at end
 
     cout << "Runtime for initializing exmaples in seconds: " << ((end.tv_sec - start.tv_sec) * 
-		1000000LL + (end.tv_usec - start.tv_usec))/1000000.0 << endl << endl;		// calculate time elapsed
+		1000000LL + (end.tv_usec - start.tv_usec))/1000000.0 << endl << endl;
 
-    // initialize neuralnetwork
-    //initNN(&backPropNN);
 
     cout << "---Beginning Neural Network Training on Training set of examples (" << TRAININGSET << ")" << endl;
-    gettimeofday(&start, NULL);				// record time at start
+    gettimeofday(&start, NULL);
     backPropLearning(exampleSet, &backPropNN);
-    gettimeofday(&end, NULL);				// record time at end
+    gettimeofday(&end, NULL);
 
     cout << "Learning Runtime in seconds: " << ((end.tv_sec - start.tv_sec) * 
 		1000000LL + (end.tv_usec - start.tv_usec))/1000000.0 << endl << endl;	// calculate time elapsed
 
 
-    /*
     cout << "---Predicting Testing set of examples (" << TESTSET << ")" << endl;
-    gettimeofday(&start, NULL);				// record time at start
+    gettimeofday(&start, NULL);
     predictExamples(&backPropNN, exampleSet);
-    gettimeofday(&end, NULL);				// record time at end
+    gettimeofday(&end, NULL);
     cout << "Prediction Runtime in seconds: " << ((end.tv_sec - start.tv_sec) * 
 		1000000LL + (end.tv_usec - start.tv_usec))/1000000.0 << endl;		// calculate time elapsed
 
-    */
 
     deAlloc(&backPropNN);					// deallocate neural network dynamic memory
-
     delete [] exampleSet;
+
     return 0;
 }
