@@ -75,13 +75,6 @@ typedef struct Layer {
 typedef struct NeuralNetwork {
 
     int layerCount;
-    /* assuming 3 hidden nodes:
-        inputWeights[0] = weight from input node 1 to hidden node 1
-	inputWeights[1] = weight from input node 1 to hidden node 2
-	inputWeights[2] = weight from input node 1 to hidden node 3
-	inputWeights[3] = weight from input node 2 to hidden node 1
-	inputWeights[17] = weight from input nod 9 to hidden node 3
-    */
     layer * layers;
     double * biasByLayer;		// represents separate bias for neurons in each feedforward iteration
 
