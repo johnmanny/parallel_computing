@@ -1,6 +1,6 @@
 # Appointment Prediction
-This project aims to compare performance between a parallel implementation of a
-neural network classifier used for prediction and a serial implementation.
+This project aims to compare performance between parallel and serial implementations of a
+neural network classifier used for prediction.
 
 ## Details
 The network takes in 9 input variables from 'data/trimmedApptData.csv' and creates
