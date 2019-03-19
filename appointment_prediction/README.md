@@ -45,4 +45,5 @@ make clean		// cleans compiled files
 ```
 ## Sources
 TBD
+NNPlusPlus was not created by us and the files have the original authors listed in the headers.
 More specific sources are cited in comments.
