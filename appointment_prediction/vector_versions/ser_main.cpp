@@ -52,7 +52,7 @@ time_t getEpochTime(char *);			// used for time comparisons
 */
 void initExamples(example * exampleSet) {
 
-    char filename[256] = "data/trimmedApptData.csv";
+    char filename[256] = "../data/trimmedApptData.csv";
 
     ifstream input;
     input.open(filename);
@@ -328,7 +328,9 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
         nn->biasByLayer[j] = (rand() % 1000) / 1000.0;
     }
 
+    auto rng = default_random_engine{};
     while (1) {
+        shuffle(examplesArr.begin(), examplesArr.end(), rng);
 
         nn->layers[outputLayer].neurons[0].activatedVal = 500.0;			// reset activated val of output neuron for convergence tests
 
@@ -443,7 +445,7 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
          *              convergence towards a minimum.
          * -----------------------
 	 */
-        if ( fabs(outputError) < 0.02) {			// outputError threshold is arbitrary
+        if ( fabs(outputError) < 0.01) {			// outputError threshold is arbitrary
 
             cout.precision(6);
             cout << "\n\t---PASSED OUTPUTERROR TEST - outputError:\t" << fixed << outputError << endl;
@@ -486,11 +488,11 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
 }
 
 //////////////////////////////////////////////////////
-//void predictExamples(neuralNet * nn, example * examplesArr) {
-void predictExamples(neuralNet * nn, vector<example> examplesArr) {
+void predictExamples(neuralNet * nn, example * examplesArr) {
+//void predictExamples(neuralNet * nn, vector<example> examplesArr) {
 
     const double correctThreshold = 0.5;        // a simple threshold for yes/no predictions
-    int correct = 0;                            // number of correct predictions
+    int correct = 0, noP = 0, yesP = 0;                            // number of correct predictions
     int testIndex = TRAININGSET;
 
     // define output neuron pointer for readability (lol)
@@ -538,10 +540,16 @@ void predictExamples(neuralNet * nn, vector<example> examplesArr) {
             correct++;
         }
 
+        if (outputNeuron->activatedVal < correctThreshold)
+            noP++;
+        else
+            yesP++;
+
         testIndex++;
     }
 
     cout << setprecision(2) << "\tNumber of Examples predicted correctly: " <<  correct << "\tOut of " << TESTSET << " examples" << endl;
+    cout << "\t'no' predictions: " << noP << "\n\t'yes' predictions: " << yesP << endl;
     cout << "\tPercent of correct predictions: " << setprecision(2) << correct / ((double)TESTSET) * 100.0 << endl;
 }
 
@@ -564,17 +572,15 @@ int main(int argc, char * argv[]) {
     initExamples(exampleSet);				// initialize all examples using EXAMPLECOUNT (nn.h)
     gettimeofday(&end, NULL);				// record time at end
    
-    for (int i = 0; i < EXAMPLECOUNT; i++) {
+    for (int i = 0; i < TRAININGSET; i++) {
         exVec.push_back(exampleSet[i]);
     }
-    cout << "last example output: " << exVec[EXAMPLECOUNT].output << endl;
-    auto rng = default_random_engine{};
-    shuffle(exVec.begin(), exVec.end(), rng);
+    //auto rng = default_random_engine{};
+    //shuffle(exVec.begin(), exVec.end(), rng);
     //random_shuffle(exVec.begin(), exVec.end());
     
     cout << "Runtime for initializing examples in seconds: " << ((end.tv_sec - start.tv_sec) * 
 		1000000LL + (end.tv_usec - start.tv_usec))/1000000.0 << endl << endl;
-
 
     cout << "---Beginning Neural Network Training on Training set of examples (" << TRAININGSET << ")" << endl;
     gettimeofday(&start, NULL);
@@ -583,12 +589,14 @@ int main(int argc, char * argv[]) {
     gettimeofday(&end, NULL);
 
     cout << "Learning Runtime in seconds: " << ((end.tv_sec - start.tv_sec) * 
-		1000000LL + (end.tv_usec - start.tv_usec))/1000000.0 << endl << endl;	// calculate time elapsed
+    		1000000LL + (end.tv_usec - start.tv_usec))/1000000.0 << endl << endl;	// calculate time elapsed
+    
 
 
     cout << "---Predicting Testing set of examples (" << TESTSET << ")" << endl;
     gettimeofday(&start, NULL);
-    predictExamples(&backPropNN, exVec);
+    //predictExamples(&backPropNN, exVec);
+    predictExamples(&backPropNN, exampleSet);
     gettimeofday(&end, NULL);
     cout << "Prediction Runtime in seconds: " << ((end.tv_sec - start.tv_sec) * 
 		1000000LL + (end.tv_usec - start.tv_usec))/1000000.0 << endl;		// calculate time elapsed

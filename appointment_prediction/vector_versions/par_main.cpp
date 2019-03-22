@@ -53,7 +53,7 @@ time_t getEpochTime(char *);			// used for time comparisons
 */
 void initExamples(example * exampleSet) {
 
-    char filename[256] = "data/trimmedApptData.csv";
+    char filename[256] = "../data/trimmedApptData.csv";
 
     ifstream input;
     input.open(filename);
@@ -327,6 +327,9 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
     double learnRate;
     double bestOError = 500.0;			// Used to record which example number provides the best outputerror
     int bestExampleNum = 0;			// ^same
+    int threadNum = 6;
+    omp_set_dynamic(0);
+    cout << "\tNumber of threads used: " << threadNum << endl;
 
     // seed pseudo-random generator for same sequence every time
     srand(999);
@@ -373,7 +376,7 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
             for (i = 1; i < nn->layerCount; i++) {
 
 		// for each neuron in this layer
-                #pragma omp parallel for shared(nn, i) private(v, k) num_threads(3)
+                #pragma omp parallel for shared(nn, i) private(v, k) num_threads(threadNum)
                 for (v = 0; v < nn->layers[i].neuronCount; v++) {
 
                     // assign layer bias as part of sum
@@ -455,7 +458,7 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
          *              convergence towards a minimum.
          * -----------------------
 	 */
-        if ( fabs(outputError) < 0.02) {			// outputError threshold is arbitrary
+        if ( fabs(outputError) < 0.03) {			// outputError threshold is arbitrary
 
             cout.precision(6);
             cout << "\n\t---PASSED OUTPUTERROR TEST - outputError:\t" << fixed << outputError << endl;
@@ -502,7 +505,7 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
 void predictExamples(neuralNet * nn, vector<example> examplesArr) {
 
     const double correctThreshold = 0.5;        // a simple threshold for yes/no predictions
-    int correct = 0;                            // number of correct predictions
+    int correct = 0, noP = 0, yesP = 0;                            // number of correct predictions
     int testIndex = TRAININGSET;
 
     // define output neuron pointer for readability (lol)
@@ -552,10 +555,16 @@ void predictExamples(neuralNet * nn, vector<example> examplesArr) {
             correct++;
         }
 
+        if (outputNeuron->activatedVal < correctThreshold)
+            noP++;
+        else
+            yesP++;
+
         testIndex++;
     }
 
     cout << setprecision(2) << "\tNumber of Examples predicted correctly: " <<  correct << "\tOut of " << TESTSET << " examples" << endl;
+    cout << "\tno predictions: " << noP << "\n\tyes predictions: " << yesP << endl;
     cout << "\tPercent of correct predictions: " << setprecision(2) << correct / ((double)TESTSET) * 100.0 << endl;
 }
 
@@ -589,7 +598,6 @@ int main(int argc, char * argv[]) {
     cout << "Runtime for initializing examples in seconds: " << ((end.tv_sec - start.tv_sec) * 
 		1000000LL + (end.tv_usec - start.tv_usec))/1000000.0 << endl << endl;
 
-
     cout << "---Beginning Neural Network Training on Training set of examples (" << TRAININGSET << ")" << endl;
     gettimeofday(&start, NULL);
     //backPropLearning(exampleSet, &backPropNN);
@@ -598,7 +606,6 @@ int main(int argc, char * argv[]) {
 
     cout << "Learning Runtime in seconds: " << ((end.tv_sec - start.tv_sec) * 
 		1000000LL + (end.tv_usec - start.tv_usec))/1000000.0 << endl << endl;	// calculate time elapsed
-
 
     cout << "---Predicting Testing set of examples (" << TESTSET << ")" << endl;
     gettimeofday(&start, NULL);

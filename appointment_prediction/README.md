@@ -28,22 +28,20 @@ https://www.kaggle.com/joniarroba/noshowappointments
 ```
 
 ## Use
-The number of hidden layers and neurons in each respective layer are passed as arguments:
-There are 2 layers which aren't modified. 
-- The first layer will always have 9 input neurons
-- The output (last) layer will always only have 1 neuron
+Descend into the relevant directory of this repository to view different versions of 
+the project. Inside each is a readme with instructions on running it. 
 
+Custom Network Includes
 ```
-make			// compiles
-make run		// runs network automatically with 2 hidden layers - first with 5 neurons second with 6
-
-./ser_main 5 6		// run with 5 neurons in 1st hidden layer and 6 neurons in 2nd hidden layer
-./ser_main 4		// run with 4 neurons in 1 hidden layer
-./ser_main 8 6 4 3	// run with 8 neurons in first hidden layer, 6 in second, 4 in 3rd, 3 in 4th
-
-make clean		// cleans compiled files
+- defined_versions: a simple, custom built and hardcoded size network
+- ptr_versions:	allows for user-defined network layers and numbers
+- vector_versions: allows for user defined network layers and numbers using vectors
+- batch_version: parallel processing neural network trainer using openMP. is in progress
+- ParaYannl: the off-the-shelf versions
 ```
 ## Sources
-TBD
-NNPlusPlus was not created by us and the files have the original authors listed in the headers.
+Yannl off-the-shelf neural network.
 More specific sources are cited in comments.
+
+## Authors
+Isaac Lance, John Nemeth
