@@ -12,7 +12,7 @@ batch_o: batch_m_old.cpp
 # Arguments are number of hidden neurons on each layer
 #   I.E.: 5 neurons at first hidden layer, 6 neurons at second hidden layer,etc
 
-runB:
+run:
 	./batch_main 5 4
 
 runO:

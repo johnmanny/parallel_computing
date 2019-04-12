@@ -54,8 +54,8 @@ time_t getEpochTime(char *);			// used for time comparisons
 */
 void initExamples(example * exampleSet) {
 
-    //char filename[256] = "data/trimmedApptData.csv";
-    char filename[256] = "../data/reducedApptData.csv";
+    char filename[256] = "../data/trimmedApptData.csv";
+    //char filename[256] = "../data/reducedApptData.csv";
 
     ifstream input;
     input.open(filename);
@@ -297,10 +297,9 @@ void deAlloc(neuralNet * nn) {
 void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
 
     int i, j, k, v;
-    int exampleIterations = 0;
+    int exampleIterations = 1;
     int outputLayer = nn->layerCount - 1;
-    int bestExampleNum = 0;			// ^same
-    double learnRate, outputError, oldError, oldActivated, bestOError;
+    double learnRate, outputError, oldError, oldActivated, bestOError, bestLocalOutputErr; 
 
     // seed pseudo-random generator for same sequence every time
     srand(999);
@@ -323,18 +322,19 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
         for (k = 0; k < nn->layers[i].neuronCount; k++) {				// for each neuron in the layer
             for (j = 0; j < nn->layers[i+1].neuronCount; j++) {			// for each connection this neuron has, randomize weight
                 nn->layers[i].neurons[k].weights[j] = (rand() % 1000) / 1000.0 ;
-                //parentWeights.push_back(nn->layers[i].neurons[k].weights[j]);
             }
         }
     }
 
     vector<double> parentWeights;
-    parentWeights.reserve(pow(MAXNEURONS, MAXLAYERS) + INPUTNEURONS*MAXNEURONS);
+    parentWeights.reserve(pow(MAXNEURONS, MAXLAYERS) + INPUTNEURONS*MAXNEURONS + MAXNEURONS);
+    bestOError = 2.0;
 
     int endingJ[threadCount];
+    double EPSILON = 0.000001;
     while (1){
 
-    if ((exampleIterations+1) % 1000 == 0) {
+    if ((exampleIterations++) % 10000 == 0) {
     // assign random initial weights for each neuron connection other than for last later
     for (i = 0; i < outputLayer; i++) {						// for each layer except output layer
         for (k = 0; k < nn->layers[i].neuronCount; k++) {				// for each neuron in the layer
@@ -350,18 +350,17 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
         shuffle(examplesArr.begin(), examplesArr.end(), default_random_engine{seed});
         gettimeofday(&start, NULL);				// record time at start
         parentWeights.clear();
-        #pragma omp parallel private(i, j, k, v, outputError, oldError, oldActivated, bestOError, bestExampleNum) shared(learnRate, examplesArr, outputLayer, nn, errors, actDiffs, errorDiffs, parentWeights) num_threads(threadCount)
+        #pragma omp parallel private(i, j, k, v, outputError, oldError, oldActivated, bestLocalOutputErr) shared(bestOError, learnRate, examplesArr, outputLayer, nn, errors, actDiffs, errorDiffs, parentWeights, EPSILON) num_threads(threadCount)
 	{
         //auto rng = default_random_engine{};
-        vector<example> ex(examplesArr.begin(), examplesArr.end());
-        shuffle(ex.begin(), ex.end(), default_random_engine{(unsigned) chrono::system_clock::now().time_since_epoch().count()});
+        //vector<example> ex(examplesArr.begin(), examplesArr.end());
+        //shuffle(ex.begin(), ex.end(), default_random_engine{(unsigned) chrono::system_clock::now().time_since_epoch().count()});
         int threadID = (int)omp_get_thread_num();
 
-        bestOError = 500.0;
-        bestExampleNum = 0;
-        outputError = 1.0;
-        oldError = 500.0;
-        oldActivated = 500.0; 	// variables for convergence tests
+        bestLocalOutputErr = 1.0f;
+        outputError = 1.0f;
+        oldError = 500.0f;
+        oldActivated = 500.0f; 	// variables for convergence tests
         neuralNet threadNet;
         threadNet.layerCount = nn->layerCount;
         for (i = 0; i < nn->layerCount; i++) {
@@ -397,13 +396,11 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
             //// record previous activated value for output neuron (used in convergence test)
             oldActivated = nn->layers[outputLayer].neurons[0].activatedVal;
 
-            /*
             //// assigns input values used in the example
             for (v = 0; v < INPUTNEURONS; v++) {
-                threadNet.layers[0].neurons[v].val = ex[j].inputsByOrder[v];
-                threadNet.layers[0].neurons[v].activatedVal = ex[j].inputsByOrder[v];
+                threadNet.layers[0].neurons[v].val = examplesArr[j].inputsByOrder[v];
+                threadNet.layers[0].neurons[v].activatedVal = examplesArr[j].inputsByOrder[v];
             }
-            */
 
             //// Find values for hidden and output neurons
             // for all layers other than the input
@@ -433,13 +430,12 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
             oldError = threadNet.layers[outputLayer].neurons[0].curWError;		// used in convergence test (minimality test)
             threadNet.layers[outputLayer].neurons[0].derivedVal = derive(threadNet.layers[outputLayer].neurons[0].activatedVal);
             threadNet.layers[outputLayer].neurons[0].curWError = (threadNet.layers[outputLayer].neurons[0].derivedVal
-								 * (ex[j].output - threadNet.layers[outputLayer].neurons[0].activatedVal));
+								 * (examplesArr[j].output - threadNet.layers[outputLayer].neurons[0].activatedVal));
             outputError = threadNet.layers[outputLayer].neurons[0].curWError;		// outputError used in convergence test readability
 
             //// This check is to record the example number where the lowest outputerror is achieved
-            if (fabs(outputError) < fabs(bestOError)) {
-                bestOError = fabs(outputError);
-                bestExampleNum = j;
+            if ((fabs(outputError) - bestLocalOutputErr) < 0.00000001) {
+                bestLocalOutputErr = outputError;
             }
                 
             //// Calculate responsibility of error for neurons in earlier layers
@@ -482,16 +478,20 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
 
         #pragma omp critical
         {
+        if ((fabs(bestLocalOutputErr) - bestOError) < 0.00000001) {
+            bestOError = bestLocalOutputErr;
+        }
 	int weightIndex = 0;
         for (i = 0; i < outputLayer; i++) {
         	for (v = 0; v < threadNet.layers[i].neuronCount; v++) {
 			for (k = 0; k < threadNet.layers[i+1].neuronCount; k++) {
-				//parentWeights[weightIndex] += (threadNet.layers[i].neurons[v].weights[k] / fabs(errors[threadID]));
+				//parentWeights[weightIndex] += (threadNet.layers[i].neurons[v].weights[k] / (fabs(errors[threadID]) * 1000.0));
 				parentWeights[weightIndex] += threadNet.layers[i].neurons[v].weights[k];
                                 weightIndex++;
 			}
 		}
         }
+        //bestOError = (fabs(bestOError - bestLocalOutputErr) < EPSILON) ? bestLocalOutputErr : bestOError;
         }
 
         #pragma omp single
@@ -504,11 +504,12 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
 
         double avgError = 0.0, avgErrorDiff = 0.0, avgActDiff = 0.0;
         for (i = 0; i < threadCount; i++) {
-            avgError += fabs(errors[i]);
+            //avgError += fabs(errors[i]);
+            avgError += errors[i];
             avgErrorDiff += fabs(errorDiffs[i] - errors[i]);
             avgActDiff += fabs(actDiffs[i] - nn->layers[outputLayer].neurons[0].activatedVal);
         }
-        avgError = avgError / (double)threadCount;
+        avgError = fabs(avgError) / (double)threadCount;
         avgErrorDiff = avgErrorDiff / (double)threadCount;
         avgActDiff = avgActDiff / (double)threadCount;
 
@@ -516,16 +517,8 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
         for (i = 0; i < outputLayer; i++) {						// for each layer except output layer
             for (k = 0; k < nn->layers[i].neuronCount; k++) {				// for each neuron in the layer
                 for (j = 0; j < nn->layers[i+1].neuronCount; j++) {			// for each connection this neuron has, randomize weight
-                    //nn->layers[i].neurons[k].weights[j] = 0.0;
-                    //nn->layers[i].neurons[k].weights[j] += (( avgError * parentWeights[weightIndex]) / (double)threadCount) * learnRate;
                     nn->layers[i].neurons[k].weights[j] = parentWeights[weightIndex] /(double)threadCount;
-                    //nn->layers[i].neurons[k].weights[j] = (( nn->layers[i].neurons[j].weights[j] + parentWeights[weightIndex])) / ((double)threadCount + 1.0);
                     weightIndex++;
-                    //for (v = 0; v < threadCount; v++) {
-                        //nn->layers[i].neurons[k].weights[j] += weights[v][extraIndex];
-                    //}
-                    //nn->layers[i].neurons[k].weights[j] = nn->layers[i].neurons[k].weights[j] / (double)threadCount;
-                    //extraIndex++;
                 }
             }
         }
@@ -539,28 +532,30 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
          *              convergence towards a minimum.
          * -----------------------
 	 */
-        if ( fabs(avgError) < 0.02) {			// avgError threshold is arbitrary
+        cout.precision(6);
+        if (fabs(avgError) < 0.00001) {			// avgError threshold is arbitrary
 
-            cout.precision(6);
             cout << "\n\t---PASSED OUTPUTERROR TEST - avgError:\t" << fixed << avgError << endl;
             cout << "\tavg output error: " << avgError << endl;
             cout << "\tavg error diff: " << avgErrorDiff << endl;
             cout << "\tavg activation diff: " << avgActDiff << endl;
             cout << "\tact diff 0: " << actDiffs[0] << endl;
-            //:gettimeofday(&end, NULL);				// record time at end
+            cout << "\tbest calculated output error:\t" << bestOError << endl;
             cout << "\toutput error for each thread at end: " << endl;
+            for (i = 0; i < threadCount; i++) {
+                cout << "\t\terror for thread " << i << ": " << errors[i] << endl;
+            }
 
             // variables to test for final example evaluation (convergence)
             if ((avgActDiff > 0.15) && (avgErrorDiff > 0.04)) {	// difference arbitrarily unacceptable
                 cout << "\t---FAILED CONVERGENCE TEST\n\toutput difference upon final example:\t"  << avgActDiff
-                 << "\n\terror difference upon final example:\t" << avgErrorDiff << endl;
+                << "\n\terror difference upon final example:\t" << avgErrorDiff << endl;
                 cout << "\tloops through example set:\t" << exampleIterations << endl;
                 cout << "\tlearnRate:\t\t\t" << learnRate << endl;
                 cout << "\toutput target:\t\t\t" << examplesArr[TRAININGSET-1].output << endl;
                 cout << "\toutput result:\t\t\t" << nn->layers[outputLayer].neurons[0].activatedVal << endl;
-                cout << setprecision(15) << "\tbest avgError achieved:\t\t" << bestOError << "\n\t- for example num:\t\t" << bestExampleNum << endl;
+                cout << "\tbest calculated output error:\t" << bestOError << endl;
                 cout << "\tCONTINUING BACK PROP LEARNING..." << endl;
-                exampleIterations++;
                 continue;
             }
             else {
@@ -570,49 +565,43 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
                 cout << "\tlearnRate:\t\t\t" << learnRate << endl;
                 cout << "\toutput target:\t\t\t" << examplesArr[TRAININGSET-1].output << endl;
                 cout << "\toutput result:\t\t\t" << nn->layers[outputLayer].neurons[0].activatedVal << endl;
-                cout << setprecision(15) << "\tbest avgError achieved:\t\t" << bestOError << "\n\t- for example num:\t\t" << bestExampleNum << endl;
-            for (i = 0; i < threadCount; i++) {
-                cout << "\t\terror for thread " << i << ": " << errors[i] << endl;
-            }
-           for (i = 0; i < (int)parentWeights.size(); i++) {
-               cout << "\t\tweight " << i << " summed: " << parentWeights[i] << endl;
-           }
-                //for (i = 0; i < (int)parentWeights.size(); i++) {
-                //    cout << "\t\tweight " << i << "summed: " << parentWeights[i] << endl;
-                //    parentWeights[i] = 0.0;
-                //}
+                cout << "\tbest calculated output error:\t" << bestOError << endl;
+
+                for (i = 0; i < (int)parentWeights.size(); i++) 
+                    cout << "\t\tweight " << i << " summed: " << parentWeights[i] << endl;
                 return;
             }
 
             if ((exampleIterations % 100) == 0) {
-                //neuronsPrint(nn);
                 cout << "\n---Convergence not achieved\n\tIterations through examples:\t\t" << exampleIterations << endl;
                 cout << "\tlearnRate:\t\t\t\t" << learnRate << "\n\tlast example avgError:\t\t" << avgError << endl;
                 cout << "\tlast example output target:\t\t" << examplesArr[TRAININGSET-1].output << endl;
                 cout << "\tlast example output result:\t\t" << nn->layers[outputLayer].neurons[0].activatedVal << endl;
-                cout << setprecision(15) << "\tbest avgError achieved:\t\t" << bestOError << "\n\t- for example num:\t\t" << bestExampleNum << endl;
+                cout << "\tbest calculated output error:\t" << bestOError << endl;
             }
         }
 
 
-        exampleIterations++;
         gettimeofday(&end, NULL);				// record time at end
-        if ((exampleIterations % 100) == 0) {
+        if ((exampleIterations % 1000) == 0) {
             cout << "---Epoch " << exampleIterations << " done" << endl;
             cout << "\tRuntime for batch processing in seconds: " << ((end.tv_sec - start.tv_sec) * 
 	 		1000000LL + (end.tv_usec - start.tv_usec))/1000000.0 << endl;
             cout << "\tavg output error:\t" << avgError << endl;
             cout << "\tavg error diff:\t\t" << avgErrorDiff << endl;
             cout << "\tavg activation diff:\t" << avgActDiff << endl;
+            cout << "\tbest calculated output error:\t" << bestOError << endl;
             cout << "\tlearn rate:\t\t" << learnRate << endl;
-            //:gettimeofday(&end, NULL);				// record time at end
             cout << "\toutput error for each thread at end: " << endl;
             for (i = 0; i < threadCount; i++) {
                 cout << "\t\terror for thread " << i << ": " << errors[i] << endl;
             }
-            for (i = 0; i < (int)parentWeights.size(); i++) {
-               cout << "\t\tweight " << i << " summed: " << parentWeights[i] << endl;
-           }
+            cout << "=============================================" << endl;
+            
+            //for (i = 0; i < (int)parentWeights.size(); i++) {
+            //   cout << "\t\tweight " << i << " summed: " << parentWeights[i] << endl;
+            //}
+            
         /*
 	int weightIndex = 0;
             for (int x = 0; x < outputLayer; x++) {
@@ -629,8 +618,8 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
 }
 
 //////////////////////////////////////////////////////
-void predictExamples(neuralNet * nn, example * examplesArr) {
-//void predictExamples(neuralNet * nn, vector<example> examplesArr) {
+//void predictExamples(neuralNet * nn, example * examplesArr) {
+void predictExamples(neuralNet * nn, vector<example> examplesArr) {
 
     const double correctThreshold = 0.5;        // a simple threshold for yes/no predictions
     int correct = 0, no = 0, yes = 0;                            // number of correct predictions
@@ -639,7 +628,7 @@ void predictExamples(neuralNet * nn, example * examplesArr) {
     // define output neuron pointer for readability (lol)
     neuron * outputNeuron = &nn->layers[nn->layerCount-1].neurons[0];
 
-    for (int j = TRAININGSET; j < EXAMPLECOUNT; j++) {
+    for (int j = 0; j < TESTSET; j++) {
         /* -------------------------
          * Propogate inputs forward to the output neuron
          * ------------------------- */
@@ -688,7 +677,6 @@ void predictExamples(neuralNet * nn, example * examplesArr) {
         else
             no++;
 
-        //testIndex++;
     }
 
     cout << setprecision(2) << "\tNumber of Examples predicted correctly: " <<  correct << "\tOut of " << TESTSET << " examples" << endl;
@@ -709,19 +697,24 @@ int main(int argc, char * argv[]) {
     // declare example array on heap
     example * exampleSet = new example[EXAMPLECOUNT];
     vector <example> exVec;
+    vector <example> testVec;
+    exVec.reserve(EXAMPLECOUNT);
+    testVec.reserve(TESTSET);
 
     struct timeval end, start;
     gettimeofday(&start, NULL);				// record time at start
     initExamples(exampleSet);				// initialize all examples using EXAMPLECOUNT (nn.h)
     gettimeofday(&end, NULL);				// record time at end
    
-    for (int i = 0; i < TRAININGSET; i++) {
+    for (int i = 0; i < TRAININGSET; i++)
         exVec.push_back(exampleSet[i]);
-    }
-    //cout << "last example output: " << exVec[TRAININGSET-1].output << endl;
-    //auto rng = default_random_engine{};
-    //shuffle(exVec.begin(), exVec.end(), rng);
-    //random_shuffle(exVec.begin(), exVec.end());
+
+    for (int i = EXAMPLECOUNT-1; i >= TRAININGSET; i--)
+        testVec.push_back(exampleSet[i]);
+
+    unsigned seed = chrono::system_clock::now().time_since_epoch().count();
+    shuffle(testVec.begin(), testVec.end(), default_random_engine{seed});
+
     
     cout << "Runtime for initializing examples in seconds: " << ((end.tv_sec - start.tv_sec) * 
 		1000000LL + (end.tv_usec - start.tv_usec))/1000000.0 << endl << endl;
@@ -740,12 +733,10 @@ int main(int argc, char * argv[]) {
 
     cout << "---Predicting Testing set of examples (" << TESTSET << ")" << endl;
     gettimeofday(&start, NULL);
-    //predictExamples(&backPropNN, exVec);
-    predictExamples(&backPropNN, exampleSet);
+    predictExamples(&backPropNN, testVec);
     gettimeofday(&end, NULL);
     cout << "Prediction Runtime in seconds: " << ((end.tv_sec - start.tv_sec) * 
 		1000000LL + (end.tv_usec - start.tv_usec))/1000000.0 << endl;		// calculate time elapsed
-
 
     deAlloc(&backPropNN);					// deallocate neural network dynamic memory
     delete [] exampleSet;
