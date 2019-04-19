@@ -17,3 +17,5 @@ after each training set runthrough, equal number of no/yes cases)
 
 - The main network actually learns in a method that is more accurately described
 as a mini-batch gradient descent method of supervised neural net learning.
+
+- Doesn't hold much error checking to speak of. 
