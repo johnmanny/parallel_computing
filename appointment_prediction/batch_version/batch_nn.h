@@ -9,14 +9,11 @@
 
 #define INPUTNEURONS 9
 #define OUTPUTNEURONS 1
-//#define EXAMPLECOUNT 44629
-//#define TRAININGSET 40000
 #define EXAMPLECOUNT 110523
 #define TRAININGSET 44632
 #define TESTSET (EXAMPLECOUNT - TRAININGSET)
 #define MAXLAYERS 5
 #define MAXNEURONS 9
-//#define MAXCONNECTIONS 25
 
 #include <vector>
 
@@ -24,7 +21,6 @@
 /* functions for neuron activation and derivation */
 //----------------------------------------------------------------//
 inline double activate(double val) { return 1.0 / (1.0 + exp(-val)); }
-
 inline double derive(double activatedVal) { return activatedVal * (1.0 - activatedVal); }
 
 //----------------------------------------------------------------//
@@ -34,11 +30,8 @@ inline double derive(double activatedVal) { return activatedVal * (1.0 - activat
 ///////////////////////////////////////
 /* struct for Neuron
     - Uses sigmoid activation function
-    TODO: Remove activate() and  derive() functions and make them global or static
 */
 typedef struct Neuron {
-    //void activate() { this->activatedVal = (1.0 / (1.0 + exp((-this->val)) ) ); };
-    //void derive()   { this->derivedVal = (this->activatedVal * (1.0 - this->activatedVal)); };
     double val;			// sum of input weights
     double activatedVal;	// activated by sigmoid function to range it between 0-1
     double derivedVal;		// used for error calculation
@@ -48,8 +41,6 @@ typedef struct Neuron {
         - The index in the array is the index of the neuron in the next layer. I.E:
             Neuron 2->Neuron 4 in next layer is at: weights[3]
     */
-    //double * weights;		// holds weights for connecting neurons in next layer
-    //std::vector <double> weights;
     double weights[MAXNEURONS];
     double curWError;		// current error of weight value
 
@@ -79,7 +70,6 @@ typedef struct Example {
 // struct for the layers in neural network
 typedef struct Layer {
      int neuronCount = 0;
-     //neuron * neurons;
      neuron neurons[MAXNEURONS];
 } layer;
 
@@ -88,8 +78,6 @@ typedef struct Layer {
 typedef struct NeuralNetwork {
 
     int layerCount;
-    //layer * layers;
-    //double * biasByLayer;		// represents separate bias for neurons in each feedforward iteration
     layer layers[MAXLAYERS];
     double biasByLayer[MAXLAYERS];
 
