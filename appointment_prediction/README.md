@@ -1,6 +1,17 @@
 # Appointment Prediction
 The purpose of this project was to train a neural network for predicting whether
-a patient would no-show to their appointment. 
+a patient would no-show to their appointment. The folders in this directory are
+different iterated versions of the project. The latest work is in batch_version.
+
+Information about each:
+```
+- defined_versions: a simple, custom built and hardcoded size network
+- ptr_versions:	allows for user-defined network layers and numbers
+- vector_versions: allows for user defined network layers and numbers using vectors
+- batch_version: parallel processing neural network trainer using openMP and mini-batch
+gradient descent training. hardcoded limits to network size. reprsents
+the final version. 
+```
 
 ## Details
 The network takes in 9 input variables from 'data/trimmedApptData.csv' and creates
@@ -33,14 +44,6 @@ https://www.kaggle.com/joniarroba/noshowappointments
 Descend into the relevant directory of this repository to view different versions of 
 the project. Inside each is a readme with instructions on running it. 
 
-Custom Network Includes
-```
-- defined_versions: a simple, custom built and hardcoded size network
-- ptr_versions:	allows for user-defined network layers and numbers
-- vector_versions: allows for user defined network layers and numbers using vectors
-- batch_version: parallel processing neural network trainer using openMP. represents
-most complete work
-```
 ## Sources
 More specific sources are cited in comments.
 
