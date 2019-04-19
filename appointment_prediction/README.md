@@ -1,6 +1,6 @@
 # Appointment Prediction
-This project aims to compare performance between parallel and serial implementations of a
-neural network classifier used for prediction.
+The purpose of this project was to train a neural network for predicting whether
+a patient would no-show to their appointment. 
 
 ## Details
 The network takes in 9 input variables from 'data/trimmedApptData.csv' and creates
@@ -26,6 +26,8 @@ https://www.kaggle.com/joniarroba/noshowappointments
 8. is handicapped	// yes, no
 9. received reminder	// yes, no
 ```
+## Important Notes
+- The most thorough and complete version of the project is inside the batch_version folder.
 
 ## Use
 Descend into the relevant directory of this repository to view different versions of 
@@ -36,12 +38,11 @@ Custom Network Includes
 - defined_versions: a simple, custom built and hardcoded size network
 - ptr_versions:	allows for user-defined network layers and numbers
 - vector_versions: allows for user defined network layers and numbers using vectors
-- batch_version: parallel processing neural network trainer using openMP. is in progress
-- ParaYannl: the off-the-shelf versions
+- batch_version: parallel processing neural network trainer using openMP. represents
+most complete work
 ```
 ## Sources
-Yannl off-the-shelf neural network.
 More specific sources are cited in comments.
 
 ## Authors
-Isaac Lance, John Nemeth
+John Nemeth, Isaac Lance

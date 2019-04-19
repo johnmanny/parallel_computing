@@ -296,27 +296,27 @@ void deAlloc(neuralNet * nn) {
 */
 void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
 
+    int threadCount = 6;
     int i, j, k, v;
     int exampleIterations = 1;
     int outputLayer = nn->layerCount - 1;
     double learnRate, outputError, oldError, oldActivated, bestOError, bestLocalOutputErr; 
+    double errors[threadCount];
+    double actDiffs[threadCount];
+    double errorDiffs[threadCount];
+    struct timeval end, start;
+
+    bestOError = 2.0;
+
+    cout << "\tNumber of Threads: " << threadCount << endl;
 
     // seed pseudo-random generator for same sequence every time
     srand(999);
     // create array of biases for each layer
-    //nn->biasByLayer = new double[outputLayer];                                          // init bias used in each layer
     for (j = 0; j < outputLayer; j++) {
         nn->biasByLayer[j] = (rand() % 1000) / 1000.0;
     }
 
-    struct timeval end, start;
-   
-    int threadCount = 6;
-    cout << "\tNumber of Threads: " << threadCount << endl;
-
-    double errors[threadCount];
-    double actDiffs[threadCount];
-    double errorDiffs[threadCount];
     // assign random initial weights for each neuron connection other than for last later
     for (i = 0; i < outputLayer; i++) {						// for each layer except output layer
         for (k = 0; k < nn->layers[i].neuronCount; k++) {				// for each neuron in the layer
@@ -326,43 +326,43 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
         }
     }
 
+    // vector for combining weights between threads
     vector<double> parentWeights;
     parentWeights.reserve(pow(MAXNEURONS, MAXLAYERS) + INPUTNEURONS*MAXNEURONS + MAXNEURONS);
-    bestOError = 2.0;
 
-    int endingJ[threadCount];
-    double EPSILON = 0.000001;
     while (1){
 
-    if ((exampleIterations++) % 10000 == 0) {
-    // assign random initial weights for each neuron connection other than for last later
-    for (i = 0; i < outputLayer; i++) {						// for each layer except output layer
-        for (k = 0; k < nn->layers[i].neuronCount; k++) {				// for each neuron in the layer
-            for (j = 0; j < nn->layers[i+1].neuronCount; j++) {			// for each connection this neuron has, randomize weight
-                nn->layers[i].neurons[k].weights[j] = ((rand() % 1000)-(rand() % 1000)) / 1000.0 ;
+        if ((exampleIterations++) % 10000 == 0) {
+
+            // assign random initial weights for each neuron connection other than for last later
+            for (i = 0; i < outputLayer; i++) {
+                for (k = 0; k < nn->layers[i].neuronCount; k++) {
+                    for (j = 0; j < nn->layers[i+1].neuronCount; j++) {
+                        nn->layers[i].neurons[k].weights[j] = ((rand() % 1000)-(rand() % 1000)) / 1000.0 ;
+                    }
+                }
             }
         }
-    }
-    }
 
+	// make a decaying learnrate for each failed training iteration
         learnRate = 1000.0/(1000.0 + exampleIterations);
+
         unsigned seed = chrono::system_clock::now().time_since_epoch().count();
         shuffle(examplesArr.begin(), examplesArr.end(), default_random_engine{seed});
-        gettimeofday(&start, NULL);				// record time at start
+        gettimeofday(&start, NULL);							
         parentWeights.clear();
-        #pragma omp parallel private(i, j, k, v, outputError, oldError, oldActivated, bestLocalOutputErr) shared(bestOError, learnRate, examplesArr, outputLayer, nn, errors, actDiffs, errorDiffs, parentWeights, EPSILON) num_threads(threadCount)
-	{
-        //auto rng = default_random_engine{};
-        //vector<example> ex(examplesArr.begin(), examplesArr.end());
-        //shuffle(ex.begin(), ex.end(), default_random_engine{(unsigned) chrono::system_clock::now().time_since_epoch().count()});
-        int threadID = (int)omp_get_thread_num();
 
+        #pragma omp parallel private(i, j, k, v, outputError, oldError, oldActivated, bestLocalOutputErr) shared(bestOError, learnRate, examplesArr, outputLayer, nn, errors, actDiffs, errorDiffs, parentWeights) num_threads(threadCount)
+	{
+        int threadID = (int)omp_get_thread_num();
         bestLocalOutputErr = 1.0f;
         outputError = 1.0f;
         oldError = 500.0f;
         oldActivated = 500.0f; 	// variables for convergence tests
         neuralNet threadNet;
         threadNet.layerCount = nn->layerCount;
+
+        // reinitialize each threads neural net
         for (i = 0; i < nn->layerCount; i++) {
 	    threadNet.layers[i].neuronCount = nn->layers[i].neuronCount;
             for (k = 0; k < nn->layers[i].neuronCount; k++) {				// for each neuron in the layer
@@ -372,6 +372,8 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
                 threadNet.layers[i].neurons[k].curWError = 0.9;
             }       
         }
+
+        // set to weights previously calculated
         for (i = 0; i < outputLayer; i++) {
             for (k = 0; k < nn->layers[i].neuronCount; k++) {				// for each neuron in the layer
                 for (j = 0; j < nn->layers[i+1].neuronCount; j++) {			// for each connection this neuron has, randomize weight
@@ -383,6 +385,7 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
                 }
             }
         }
+
         // loop through examples 
         #pragma omp for
 	for (j = 0; j < TRAININGSET; j++) {
@@ -455,7 +458,7 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
             }
 
 
-    //// Update all weights using calculated errors
+            //// Update all weights using calculated errors
             // for each layer except last
             for (i = 0; i < outputLayer; i++) {
 
@@ -468,8 +471,6 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
                     }
                 }
             }
-        //endingJ[threadID] = j;
-
         }
  
         errors[threadID] = outputError;
@@ -491,20 +492,15 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
 			}
 		}
         }
-        //bestOError = (fabs(bestOError - bestLocalOutputErr) < EPSILON) ? bestLocalOutputErr : bestOError;
         }
 
         #pragma omp single
         nn->layers[outputLayer].neurons[0].activatedVal = threadNet.layers[outputLayer].neurons[0].activatedVal;
-        
-    }
-
-
-	// end of parallel region
+        }
+	// end of parallel region (threads recominbed)
 
         double avgError = 0.0, avgErrorDiff = 0.0, avgActDiff = 0.0;
         for (i = 0; i < threadCount; i++) {
-            //avgError += fabs(errors[i]);
             avgError += errors[i];
             avgErrorDiff += fabs(errorDiffs[i] - errors[i]);
             avgActDiff += fabs(actDiffs[i] - nn->layers[outputLayer].neurons[0].activatedVal);
@@ -533,7 +529,7 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
          * -----------------------
 	 */
         cout.precision(6);
-        if (fabs(avgError) < 0.00001) {			// avgError threshold is arbitrary
+        if (fabs(avgError) < 0.00009) {			// avgError threshold is arbitrary
 
             cout << "\n\t---PASSED OUTPUTERROR TEST - avgError:\t" << fixed << avgError << endl;
             cout << "\tavg output error: " << avgError << endl;
@@ -581,7 +577,6 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
             }
         }
 
-
         gettimeofday(&end, NULL);				// record time at end
         if ((exampleIterations % 1000) == 0) {
             cout << "---Epoch " << exampleIterations << " done" << endl;
@@ -601,29 +596,15 @@ void backPropLearning(vector<example> examplesArr, neuralNet * nn) {
             //for (i = 0; i < (int)parentWeights.size(); i++) {
             //   cout << "\t\tweight " << i << " summed: " << parentWeights[i] << endl;
             //}
-            
-        /*
-	int weightIndex = 0;
-            for (int x = 0; x < outputLayer; x++) {
-                for (int y = 0; y < nn->layers[i].neuronCount; y++) {
-                    for (int q = 0; q < nn->layers[i+1].neuronCount; q++) {
-                        cout << "weight[" << i << "][" << weightIndex << "] == " << weights[i][weightIndex] << endl;
-                        weightIndex++;
-                    }
-                }
-            }
-         */
-       }
+        }
     }
 }
 
 //////////////////////////////////////////////////////
-//void predictExamples(neuralNet * nn, example * examplesArr) {
 void predictExamples(neuralNet * nn, vector<example> examplesArr) {
 
     const double correctThreshold = 0.5;        // a simple threshold for yes/no predictions
     int correct = 0, no = 0, yes = 0;                            // number of correct predictions
-    //int testIndex = TRAININGSET;
 
     // define output neuron pointer for readability (lol)
     neuron * outputNeuron = &nn->layers[nn->layerCount-1].neurons[0];
@@ -676,7 +657,6 @@ void predictExamples(neuralNet * nn, vector<example> examplesArr) {
             yes++;
         else
             no++;
-
     }
 
     cout << setprecision(2) << "\tNumber of Examples predicted correctly: " <<  correct << "\tOut of " << TESTSET << " examples" << endl;
@@ -712,8 +692,10 @@ int main(int argc, char * argv[]) {
     for (int i = EXAMPLECOUNT-1; i >= TRAININGSET; i--)
         testVec.push_back(exampleSet[i]);
 
+    // shuffle training sets
     unsigned seed = chrono::system_clock::now().time_since_epoch().count();
     shuffle(testVec.begin(), testVec.end(), default_random_engine{seed});
+    shuffle(exVec.begin(), exVec.end(), default_random_engine{seed});
 
     
     cout << "Runtime for initializing examples in seconds: " << ((end.tv_sec - start.tv_sec) * 
@@ -722,14 +704,11 @@ int main(int argc, char * argv[]) {
 
     cout << "---Beginning Neural Network Training on Training set of examples (" << TRAININGSET << ")" << endl;
     gettimeofday(&start, NULL);
-    //backPropLearning(exampleSet, &backPropNN);
     backPropLearning(exVec, &backPropNN);
     gettimeofday(&end, NULL);
 
     cout << "Learning Runtime in seconds: " << ((end.tv_sec - start.tv_sec) * 
 		1000000LL + (end.tv_usec - start.tv_usec))/1000000.0 << endl << endl;	// calculate time elapsed
-
-    //neuronsPrint(&backPropNN);
 
     cout << "---Predicting Testing set of examples (" << TESTSET << ")" << endl;
     gettimeofday(&start, NULL);

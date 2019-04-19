@@ -5,13 +5,15 @@ Runs in parallel with default 6 cores using OpenMP.
 ## Use
 ```
 make		// compiles work-in-progress batch version 'batch_main'
-make runB	// runs work in progress batch_main
-make batch_o	// runs old batch which guesses prediction from uneven examples
-make runO	// runs old one
+make run	// runs work in progress batch_main
 make clean	// cleans directory 
 ```
 
 ## Notes
-These files are very, very dirty because of a time crunch. I will look to clean
-it up soon. Also, currently does not have error checking and the work-in-progress
-version still has bugs that are being worked out.
+- These files somewhat dirty but should be considered the final result of the 
+prediction network. With default settings, the network predicts with around
+65% accuracy with the data broken up in the defined way in the files (shuffled
+after each training set runthrough, equal number of no/yes cases)
+
+- The main network actually learns in a method that is more accurately described
+as a mini-batch gradient descent method of supervised neural net learning.
